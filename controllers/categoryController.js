@@ -11,20 +11,15 @@ exports.getAllCategories = async (req, res) => {
     }
 };
 
-// Crear una nueva categoría con ID incremental
-exports.createCategory = async (req, res) => {
+// Obtener categoría por ID
+exports.getCategoryById = async (req, res) => {
     try {
-        const snapshot = await categoriesCollection.get();
-        const newCategoryId = snapshot.size + 1;
-
-        const newCategory = {
-            id: newCategoryId,
-            name: req.body.name
-        };
-
-        await categoriesCollection.doc(String(newCategoryId)).set(newCategory);
-        res.status(201).json(newCategory);
+        const categoryDoc = await categoriesCollection.doc(req.params.id).get();
+        if (!categoryDoc.exists) {
+            return res.status(404).json({ message: "Categoría no encontrada" });
+        }
+        res.status(200).json({ id: categoryDoc.id, ...categoryDoc.data() });
     } catch (error) {
-        res.status(500).json({ message: "Error al crear categoría", error });
+        res.status(500).json({ message: "Error al obtener categoría", error });
     }
 };
