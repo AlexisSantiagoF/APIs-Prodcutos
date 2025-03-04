@@ -83,3 +83,57 @@ exports.deleteProduct = async (req, res) => {
         res.status(500).json({ message: "Error al eliminar producto", error });
     }
 };
+
+
+// Actualizar producto con historial de precios dinámico 
+exports.updateProduct = async (req, res) => {
+    try {
+        const productDoc = productsCollection.doc(req.params.id);
+        const productSnapshot = await productDoc.get();
+
+        if (!productSnapshot.exists) {
+            return res.status(404).json({ message: "Producto no encontrado" });
+        }
+
+        const productData = productSnapshot.data();
+        const nuevoPrecio = req.body.precio;
+
+        // Si el precio cambió, agregarlo al historial de precios
+        if (nuevoPrecio && productData.precio !== nuevoPrecio) {
+            const historialPrecios = productData.historialPrecios || [];
+            historialPrecios.push({
+                fecha: new Date().toISOString(),
+                precioAnterior: productData.precio
+            });
+
+            await productDoc.update({
+                precio: nuevoPrecio,
+                historialPrecios: historialPrecios
+            });
+        } else {
+            await productDoc.update(req.body);
+        }
+
+        res.status(200).json({ id: req.params.id, ...req.body });
+    } catch (error) {
+        res.status(500).json({ message: "Error al actualizar producto", error });
+    }
+};
+
+
+// Obtener historial de precios de un producto
+exports.getPriceHistory = async (req, res) => {
+    try {
+        const productDoc = await productsCollection.doc(req.params.id).get();
+
+        if (!productDoc.exists) {
+            return res.status(404).json({ message: "Producto no encontrado" });
+        }
+
+        const productData = productDoc.data();
+        res.status(200).json({ id: productDoc.id, historialPrecios: productData.historialPrecios || [] });
+    } catch (error) {
+        res.status(500).json({ message: "Error al obtener historial de precios", error });
+    }
+};
+
