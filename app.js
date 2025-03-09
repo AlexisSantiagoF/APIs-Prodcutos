@@ -2,8 +2,8 @@ const express = require('express');
 const app = express();
 
 // Importar rutas correctamente
-const productRoutes = require('./routers/productRoutes');
-const categoryRoutes = require('./routers/categoryRoutes');
+const productRoutes = require('./routes/productRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 app.use(express.json());
 

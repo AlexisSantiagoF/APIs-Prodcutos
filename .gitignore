@@ -1,2 +1,4 @@
 node_modules
 firebase-credentials.json
+firebaseConfig.js
+echo "firebaseConfig.json" >> .gitignore
