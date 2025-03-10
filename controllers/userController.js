@@ -4,7 +4,8 @@ const Products = require('../models/products');
 // Función para crear un nuevo usuario
 const createUser = async (req, res) => {
     try {
-        const userId = await User.create(req.body); // Cambié de User.createUser a User.create
+        const userId = await User.create(req.body); 
+        res.status(201).json({ success: true, userId });
         res.status(201).json({ success: true, userId });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

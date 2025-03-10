@@ -1,5 +1,6 @@
 const { productsCollection } = require('../models/products');
 const { purchasesCollection } = require('../models/purchases'); // Agregar colección de compras
+const User = require('../models/user'); // Importar el modelo de usuario
 
 // Método GET para obtener todas las compras
 exports.getPurchases = async (req, res) => {
@@ -102,6 +103,12 @@ exports.createPurchase = async (req, res) => {
       return res.status(400).json({ error: 'Missing required data in the request.' });
     }
 
+    // Verificar si el usuario existe antes de proceder
+    const userDoc = await User.usersCollection.doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
     // Asegurarse que 'productIds' sea siempre un array
     const validProductIds = Array.isArray(productIds) && productIds.length > 0 
       ? productIds 
@@ -117,6 +124,14 @@ exports.createPurchase = async (req, res) => {
       category,
       total,
       date: new Date(date)
+    });
+
+    // Obtener la lista actual de compras del usuario y agregar el nuevo ID
+    const userData = userDoc.data();
+    const updatedPurchases = userData.idCompras ? [...userData.idCompras, newPurchaseRef.id] : [newPurchaseRef.id];
+    // Actualizar el usuario con el nuevo ID de compra
+    await User.usersCollection.doc(userId).update({
+      idCompras: updatedPurchases
     });
 
     // Responder con los datos registrados
