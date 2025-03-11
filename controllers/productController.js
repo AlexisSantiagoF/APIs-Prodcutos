@@ -101,34 +101,57 @@ exports.createProduct = async (req, res) => {
 // Actualizar producto con historial de precios dinámico 
 exports.updateProduct = async (req, res) => {
     try {
-        const productDoc = productsCollection.doc(req.params.id);
+        const productId = req.params.id;
+        const productDoc = productsCollection.doc(productId);
         const productSnapshot = await productDoc.get();
 
+        // Verificar si el producto existe
         if (!productSnapshot.exists) {
             return res.status(404).json({ message: "Producto no encontrado" });
         }
 
         const productData = productSnapshot.data();
-        const nuevoPrecio = req.body.precio;
+        const nuevoPrecio = parseFloat(req.body.precio); // Convertir a número
 
-        if (nuevoPrecio && productData.precio !== nuevoPrecio) {
-            const historialPrecios = productData.historialPrecios || [];
+        // Validar el nuevo precio
+        if (nuevoPrecio && (isNaN(nuevoPrecio) || nuevoPrecio <= 0)) {
+            return res.status(400).json({ message: "El precio debe ser un número mayor que 0" });
+        }
+
+        // Verificar si el precio está siendo actualizado
+        const isPrecioUpdated = nuevoPrecio && productData.precio !== nuevoPrecio;
+
+        // Si el precio está siendo actualizado, actualizar el historial de precios
+        if (isPrecioUpdated) {
+            const historialPrecios = productData.historialPrecios || []; // Obtener el historial existente o crear uno nuevo
             historialPrecios.push({
-                fecha: new Date().toISOString(),
-                precioAnterior: productData.precio
+                fecha: new Date().toISOString(), // Fecha de la actualización
+                precioAnterior: productData.precio, // Precio anterior
+             
             });
 
+            // Actualizar el producto con el nuevo precio y el historial de precios
             await productDoc.update({
                 precio: nuevoPrecio,
                 historialPrecios: historialPrecios
             });
         } else {
+            // Si no se actualiza el precio, solo actualizar otros campos
             await productDoc.update(req.body);
         }
 
-        res.status(200).json({ id: req.params.id, ...req.body });
+        // Obtener el documento actualizado para devolverlo en la respuesta
+        const updatedProductSnapshot = await productDoc.get();
+        const updatedProductData = updatedProductSnapshot.data();
+
+        // Respuesta exitosa
+        res.status(200).json({
+            id: productId,
+            ...updatedProductData
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error al actualizar producto", error });
+        console.error("Error al actualizar producto:", error);
+        res.status(500).json({ message: "Error al actualizar producto", error: error.message });
     }
 };
 
@@ -165,7 +188,64 @@ exports.getPriceHistory = async (req, res) => {
         res.status(500).json({ message: "Error al obtener historial de precios", error });
     }
 };
+exports.predictPriceTrend = async (req, res) => {
+    try {
+        const productId = req.params.id;
+        const productDoc = productsCollection.doc(productId);
+        const productSnapshot = await productDoc.get();
 
+        // Verificar si el producto existe
+        if (!productSnapshot.exists) {
+            return res.status(404).json({ message: "Producto no encontrado" });
+        }
+
+        const productData = productSnapshot.data();
+        const historialPrecios = productData.historialPrecios || [];
+
+        // Si no hay suficiente historial, no se puede predecir
+        if (historialPrecios.length < 2) {
+            return res.status(400).json({ message: "No hay suficiente historial para predecir la tendencia" });
+        }
+
+        // Convertir fechas a timestamps y precios a números
+        const data = historialPrecios.map((entry) => ({
+            fecha: new Date(entry.fecha).getTime(), // Convertir fecha a timestamp
+            precio: entry.precioAnterior
+        }));
+
+        // Calcular la tendencia usando regresión lineal simple
+        const n = data.length;
+        const sumX = data.reduce((sum, entry) => sum + entry.fecha, 0);
+        const sumY = data.reduce((sum, entry) => sum + entry.precio, 0);
+        const sumXY = data.reduce((sum, entry) => sum + entry.fecha * entry.precio, 0);
+        const sumX2 = data.reduce((sum, entry) => sum + entry.fecha * entry.fecha, 0);
+
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX); // Pendiente de la regresión
+        const intercept = (sumY - slope * sumX) / n; // Intercepto de la regresión
+
+        // Determinar la tendencia
+        let tendencia;
+        if (slope > 0) {
+            tendencia = "El precio tiende a subir";
+        } else if (slope < 0) {
+            tendencia = "El precio tiende a bajar";
+        } else {
+            tendencia = "El precio se mantiene estable";
+        }
+
+        // Devolver la tendencia junto con el nombre del producto
+        res.status(200).json({
+            id: productId,
+            nombre: productData.nombre, // Incluir el nombre del producto
+            tendencia: tendencia,
+            pendiente: slope,
+            intercepto: intercept
+        });
+    } catch (error) {
+        console.error("Error al predecir la tendencia del precio:", error);
+        res.status(500).json({ message: "Error al predecir la tendencia del precio", error: error.message });
+    }
+};
 // 🔹 Obtener sugerencias inteligentes de productos
 // exports.getProductSuggestions = async (req, res) => {
 //     const { id } = req.params;

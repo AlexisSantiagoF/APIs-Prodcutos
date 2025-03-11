@@ -1,5 +1,5 @@
-const { productsCollection } = require('../models/products');
 const { purchasesCollection } = require('../models/purchases'); // Agregar colección de compras
+const { productsCollection } = require('../models/products');
 const User = require('../models/user'); // Importar el modelo de usuario
 
 // Método GET para obtener todas las compras
@@ -81,98 +81,143 @@ exports.getPurchaseById = async (req, res) => {
 // Crear una nueva compra
 exports.createPurchase = async (req, res) => {
   try {
-    const { productosId, idUsuario, total, fecha } = req.body;
+      const { productosId, idUsuario, total, fecha } = req.body;
 
-    if (!productosId || !idUsuario || !total || !fecha) {
-      return res.status(400).json({ error: 'Faltan datos requeridos en la solicitud.' });
-    }
+      // Validar que todos los campos requeridos estén presentes
+      if (!productosId || !idUsuario || !total || !fecha) {
+          return res.status(400).json({ error: 'Faltan datos requeridos en la solicitud.' });
+      }
 
-    const userDoc = await User.usersCollection.doc(idUsuario).get();
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: 'Usuario no encontrado.' });
-    }
+      // Verificar si el usuario existe
+      const userDoc = await User.usersCollection.doc(idUsuario).get();
+      if (!userDoc.exists) {
+          return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
 
-    const productosIds = Array.isArray(productosId) && productosId.length > 0 
-      ? productosId 
-      : [];
+      // Convertir productosId a un array si no lo es
+      const productosIds = Array.isArray(productosId) && productosId.length > 0
+          ? productosId
+          : [];
 
-    const newPurchaseRef = purchasesCollection.doc();
+      // Validar que todos los IDs de productos existan
+      const productosExistentes = await Promise.all(
+          productosIds.map(async (id) => {
+              const productDoc = await productsCollection.doc(id).get();
+              return productDoc.exists ? id : null;
+          })
+      );
 
-    await newPurchaseRef.set({
-      productosIds: productosIds,
-      idUsuario: idUsuario,
-      total,
-      fecha: new Date(fecha)
-    });
+      // Filtrar los IDs que no existen
+      const productosNoExistentes = productosExistentes.filter((id) => id === null);
 
-    const userData = userDoc.data();
-    const updatedCompras = userData.idCompras ? [...userData.idCompras, newPurchaseRef.id] : [newPurchaseRef.id];
+      // Si hay productos que no existen, devolver un error
+      if (productosNoExistentes.length > 0) {
+          return res.status(404).json({ error: 'Algunos productos no existen.', productosNoExistentes });
+      }
 
-    await User.usersCollection.doc(idUsuario).update({
-      idCompras: updatedCompras
-    });
+      // Crear la nueva compra
+      const newPurchaseRef = purchasesCollection.doc();
 
-    return res.status(201).json({
-      idCompra: newPurchaseRef.id,
-      productosIds: productosIds,
-      idUsuario: idUsuario,
-      total,
-      fecha: new Date(fecha)
-    });
+      await newPurchaseRef.set({
+          productosIds: productosIds,
+          idUsuario: idUsuario,
+          total,
+          fecha: new Date(fecha)
+      });
+
+      // Actualizar la lista de compras del usuario
+      const userData = userDoc.data();
+      const updatedCompras = userData.idCompras ? [...userData.idCompras, newPurchaseRef.id] : [newPurchaseRef.id];
+
+      await User.usersCollection.doc(idUsuario).update({
+          idCompras: updatedCompras
+      });
+
+      // Respuesta exitosa
+      return res.status(201).json({
+          idCompra: newPurchaseRef.id,
+          productosIds: productosIds,
+          idUsuario: idUsuario,
+          total,
+          fecha: new Date(fecha)
+      });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Error interno del servidor.' });
+      console.error(error);
+      return res.status(500).json({ error: 'Error interno del servidor.' });
   }
 };
 
 // Actualiza una compra
 exports.updatePurchase = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { productosIds, idUsuario, total, fecha } = req.body;
+      const { id } = req.params;
+      const { productosIds, idUsuario, total, fecha } = req.body;
 
-    if (!productosIds && !idUsuario && !total && !fecha) {
-      return res.status(400).json({ error: 'No se enviaron datos para actualizar.' });
-    }
-
-    const purchaseDoc = await purchasesCollection.doc(id).get();
-
-    if (!purchaseDoc.exists) {
-      return res.status(404).json({ error: 'Compra no encontrada.' });
-    }
-
-    const existingData = purchaseDoc.data();
-
-    const updatedData = {
-      productosIds: productosIds || existingData.productosIds,
-      idUsuario: idUsuario || existingData.idUsuario,
-      total: total !== undefined ? total : existingData.total,
-      fecha: fecha ? new Date(fecha) : existingData.fecha
-    };
-
-    await purchasesCollection.doc(id).update(updatedData);
-
-    let formattedDate = null;
-    if (updatedData.fecha) {
-      if (updatedData.fecha.toDate) {
-        formattedDate = updatedData.fecha.toDate().toISOString();
-      } else if (updatedData.fecha instanceof Date) {
-        formattedDate = updatedData.fecha.toISOString();
-      } else if (typeof updatedData.fecha === 'string') {
-        formattedDate = updatedData.fecha;
+      // Validar que se envíen datos para actualizar
+      if (!productosIds && !idUsuario && !total && !fecha) {
+          return res.status(400).json({ error: 'No se enviaron datos para actualizar.' });
       }
-    }
 
-    return res.status(200).json({
-      idCompra: id,
-      productosIds: updatedData.productosIds,
-      idUsuario: updatedData.idUsuario,
-      total: updatedData.total,
-      fecha: formattedDate
-    });
+      // Verificar si la compra existe
+      const purchaseDoc = await purchasesCollection.doc(id).get();
+      if (!purchaseDoc.exists) {
+          return res.status(404).json({ error: 'Compra no encontrada.' });
+      }
+
+      const existingData = purchaseDoc.data();
+
+      // Validar que los nuevos IDs de productos existan (si se proporcionan)
+      if (productosIds) {
+          const productosExistentes = await Promise.all(
+              productosIds.map(async (id) => {
+                  const productDoc = await productsCollection.doc(id).get();
+                  return productDoc.exists ? id : null;
+              })
+          );
+
+          // Filtrar los IDs que no existen
+          const productosNoExistentes = productosExistentes.filter((id) => id === null);
+
+          // Si hay productos que no existen, devolver un error
+          if (productosNoExistentes.length > 0) {
+              return res.status(404).json({ error: 'Algunos productos no existen.', productosNoExistentes });
+          }
+      }
+
+      // Preparar los datos actualizados
+      const updatedData = {
+          productosIds: productosIds || existingData.productosIds,
+          idUsuario: idUsuario || existingData.idUsuario,
+          total: total !== undefined ? total : existingData.total,
+          fecha: fecha ? new Date(fecha) : existingData.fecha
+      };
+
+      // Actualizar la compra
+      await purchasesCollection.doc(id).update(updatedData);
+
+      // Formatear la fecha para la respuesta
+      let formattedDate = null;
+      if (updatedData.fecha) {
+          if (updatedData.fecha.toDate) {
+              formattedDate = updatedData.fecha.toDate().toISOString();
+          } else if (updatedData.fecha instanceof Date) {
+              formattedDate = updatedData.fecha.toISOString();
+          } else if (typeof updatedData.fecha === 'string') {
+              formattedDate = updatedData.fecha;
+          }
+      }
+
+      // Respuesta exitosa
+      return res.status(200).json({
+          idCompra: id,
+          productosIds: updatedData.productosIds,
+          idUsuario: updatedData.idUsuario,
+          total: updatedData.total,
+          fecha: formattedDate
+      });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Error interno del servidor.' });
+      console.error(error);
+      return res.status(500).json({ error: 'Error interno del servidor.' });
   }
 };
 
