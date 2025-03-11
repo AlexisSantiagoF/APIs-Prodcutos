@@ -12,14 +12,28 @@ exports.getProductSuggestions = async (req, res) => {
             return res.status(200).json({ message: "No hay compras previas, no se pueden generar sugerencias.", sugerencias: [] });
         }
 
-        // Extraer categorías de productos comprados
-        const purchasedCategories = new Set();
+        // Extraer IDs de productos comprados
+        const purchasedProductIds = new Set();
         userPurchasesSnapshot.forEach(doc => {
             const purchaseData = doc.data();
-            if (purchaseData.categoria) {
-                purchasedCategories.add(purchaseData.categoria);
+            if (purchaseData.productosIds&& Array.isArray(purchaseData.productosIds)) {
+                purchaseData.productosIds.forEach(productId => {
+                    purchasedProductIds.add(productId);
+                });
             }
         });
+
+        // Obtener categorías de los productos comprados
+        const purchasedCategories = new Set();
+        for (let productId of purchasedProductIds) {
+            const productDoc = await productsCollection.doc(productId).get();
+            if (productDoc.exists) {
+                const productData = productDoc.data();
+                if (productData.categoria) {
+                    purchasedCategories.add(productData.categoria);
+                }
+            }
+        }
 
         // Buscar productos en las mismas categorías
         const suggestedProducts = [];
@@ -153,66 +167,66 @@ exports.getPriceHistory = async (req, res) => {
 };
 
 // 🔹 Obtener sugerencias inteligentes de productos
-exports.getProductSuggestions = async (req, res) => {
-    const { id } = req.params;
+// exports.getProductSuggestions = async (req, res) => {
+//     const { id } = req.params;
 
-    try {
-        const productDoc = await productsCollection.doc(id).get();
+//     try {
+//         const productDoc = await productsCollection.doc(id).get();
 
-        if (!productDoc.exists) {
-            return res.status(404).json({ message: "Producto no encontrado" });
-        }
+//         if (!productDoc.exists) {
+//             return res.status(404).json({ message: "Producto no encontrado" });
+//         }
 
-        const { categoria } = productDoc.data();
+//         const { categoria } = productDoc.data();
 
-        // 🔹 Buscar productos de la misma categoría
-        const similarProductsSnapshot = await productsCollection
-            .where("categoria", "==", categoria)
-            .where("__name__", "!=", id) // Excluir el mismo producto
-            .limit(3)
-            .get();
+//         // 🔹 Buscar productos de la misma categoría
+//         const similarProductsSnapshot = await productsCollection
+//             .where("categoria", "==", categoria)
+//             .where("__name__", "!=", id) // Excluir el mismo producto
+//             .limit(3)
+//             .get();
 
-        let similarProducts = similarProductsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
+//         let similarProducts = similarProductsSnapshot.docs.map(doc => ({
+//             id: doc.id,
+//             ...doc.data()
+//         }));
 
-        // 🔹 Buscar compras previas donde esté el producto actual
-        const purchasesSnapshot = await purchasesCollection
-            .where("productosComprados", "array-contains", id)
-            .limit(3)
-            .get();
+//         // 🔹 Buscar compras previas donde esté el producto actual
+//         const purchasesSnapshot = await purchasesCollection
+//             .where("productosComprados", "array-contains", id)
+//             .limit(3)
+//             .get();
 
-        let relatedProducts = [];
-        purchasesSnapshot.forEach(purchase => {
-            const { productosComprados } = purchase.data();
-            productosComprados.forEach(prodId => {
-                if (prodId !== id && !relatedProducts.includes(prodId)) {
-                    relatedProducts.push(prodId);
-                }
-            });
-        });
+//         let relatedProducts = [];
+//         purchasesSnapshot.forEach(purchase => {
+//             const { productosComprados } = purchase.data();
+//             productosComprados.forEach(prodId => {
+//                 if (prodId !== id && !relatedProducts.includes(prodId)) {
+//                     relatedProducts.push(prodId);
+//                 }
+//             });
+//         });
 
-        // 🔹 Obtener detalles de productos relacionados
-        let detailedRelatedProducts = [];
-        if (relatedProducts.length > 0) {
-            const relatedProductsDocs = await Promise.all(
-                relatedProducts.map(prodId => productsCollection.doc(prodId).get())
-            );
+//         // 🔹 Obtener detalles de productos relacionados
+//         let detailedRelatedProducts = [];
+//         if (relatedProducts.length > 0) {
+//             const relatedProductsDocs = await Promise.all(
+//                 relatedProducts.map(prodId => productsCollection.doc(prodId).get())
+//             );
 
-            detailedRelatedProducts = relatedProductsDocs
-                .filter(doc => doc.exists)
-                .map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-        }
+//             detailedRelatedProducts = relatedProductsDocs
+//                 .filter(doc => doc.exists)
+//                 .map(doc => ({
+//                     id: doc.id,
+//                     ...doc.data()
+//                 }));
+//         }
 
-        res.json({
-            sugerenciasCategoria: similarProducts,
-            sugerenciasPorCompras: detailedRelatedProducts
-        });
-    } catch (error) {
-        res.status(500).json({ message: "Error al obtener sugerencias", error });
-    }
-};
+//         res.json({
+//             sugerenciasCategoria: similarProducts,
+//             sugerenciasPorCompras: detailedRelatedProducts
+//         });
+//     } catch (error) {
+//         res.status(500).json({ message: "Error al obtener sugerencias", error });
+//     }
+// };
