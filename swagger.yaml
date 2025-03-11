@@ -1,0 +1,95 @@
+openapi: 3.0.0
+info:
+  title: API de Productos
+  description: Documentación de la API para la gestión de productos.
+  version: 1.0.0
+servers:
+  - url: https://apis-prodcutos.onrender.com/apiV1/products
+    description: Servidor en Render
+
+paths:
+  /:
+    get:
+      summary: Obtener todos los productos
+      responses:
+        "200":
+          description: Lista de productos
+    post:
+      summary: Crear un nuevo producto
+      responses:
+        "201":
+          description: Producto creado
+
+  "/{id}":
+    get:
+      summary: Obtener un producto por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Datos del producto
+    put:
+      summary: Actualizar un producto por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Producto actualizado
+    delete:
+      summary: Eliminar un producto por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Producto eliminado
+
+  "/{id}/history":
+    get:
+      summary: Obtener historial de precios de un producto
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Historial de precios
+
+  "/{id}/sugerencias":
+    get:
+      summary: Obtener sugerencias de productos similares
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de sugerencias
+
+  "/{id}/tendenciasPrecios":
+    get:
+      summary: Analizar tendencias de precios y predicciones de descuentos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Datos de tendencias de precios
