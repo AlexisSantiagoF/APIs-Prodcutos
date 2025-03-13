@@ -305,10 +305,7 @@ components:
     Compra:
       type: object
       properties:
-        idCompra:
-          type: string
-          description: ID de la compra
-        productosIds:
+        productosId:
           type: array
           items:
             type: string
@@ -324,11 +321,10 @@ components:
           format: date-time
           description: Fecha de la compra
       example:
-        idCompra: "1"
-        productosIds: ["1", "2"]
-        idUsuario: "123"
-        total: 2400
-        fecha: "2023-10-01T00:00:00Z"
+        productosId: ["1", "5"]
+        idUsuario: "3WMYnpmjjq1s8QYtkwqm"
+        total: 800
+        fecha: "2024-03-05T20:15:00Z"
 
     Usuario:
       type: object
