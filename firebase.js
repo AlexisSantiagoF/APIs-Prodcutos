@@ -15,7 +15,8 @@ const serviceAccount = {
 };
 
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
+     databaseURL: 'https://console.firebase.google.com/project/primera-api-db0bc/firestore/databases/-default-/data/~2Fproducts~2F3'
 });
 
 const db = admin.firestore();

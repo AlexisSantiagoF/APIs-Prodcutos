@@ -1,14 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const purchasesController = require("../controllers/purchasesController");
+const { authenticateToken } = require("../middleware/authMiddleware");
 
-router.get("/", purchasesController.getPurchases);
-router.get("/:id", purchasesController.getPurchaseById);
 
-router.post("/", purchasesController.createPurchase);
+router.get("/",authenticateToken, purchasesController.getPurchases);
+router.get("/:id",authenticateToken, purchasesController.getPurchaseById);
 
-router.put("/:id", purchasesController.updatePurchase);
+router.post("/",authenticateToken, purchasesController.createPurchase);
 
-router.delete("/:id", purchasesController.deletePurchase);
+router.put("/:id",authenticateToken, purchasesController.updatePurchase);
+
+router.delete("/:id",authenticateToken, purchasesController.deletePurchase);
 
 module.exports = router;
